@@ -1,0 +1,132 @@
+from fastapi import FastAPI, Depends, status
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+
+import database
+import crud
+import schemas
+
+app = FastAPI(title="Restaurant Management API")
+
+# Helper function tạo response đồng nhất
+def create_response(status_code: int, message: str, data=None, error=None):
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "statusCode": status_code,
+            "error": error,
+            "message": message,
+            "data": data
+        }
+    )
+
+# ---------------------------------------------------------
+# API 1: GET /dishes/ (Yêu cầu 4.2)
+# ---------------------------------------------------------
+@app.get("/dishes/", status_code=status.HTTP_200_OK)
+def read_dishes(db: Session = Depends(database.get_db)):
+    dishes = crud.get_all_dishes(db)
+    
+    # Định dạng lại dữ liệu data trả về kèm category details
+    dishes_data = [
+        {
+            "id": dish.id,
+            "name": dish.name,
+            "price": dish.price,
+            "category": {
+                "id": dish.category.id,
+                "name": dish.category.name
+            } if dish.category else None
+        }
+        for dish in dishes
+    ]
+    
+    return create_response(
+        status_code=status.HTTP_200_OK,
+        error=None,
+        message="Lấy danh sách món ăn thành công",
+        data=dishes_data
+    )
+
+# ---------------------------------------------------------
+# API 2: PUT /dishes/{dish_id} (Yêu cầu 4.3)
+# ---------------------------------------------------------
+@app.put("/dishes/{dish_id}")
+def update_dish(
+    dish_id: int, 
+    dish_in: schemas.DishUpdate, 
+    db: Session = Depends(database.get_db)
+):
+    # 1. Kiểm tra dish_id có tồn tại trong DB không
+    db_dish = crud.get_dish_by_id(db, dish_id)
+    if not db_dish:
+        return create_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            error="Not Found",
+            message="Món ăn không tồn tại",
+            data=None
+        )
+        
+    # 2. Kiểm tra category_id có tồn tại trong DB không
+    category = crud.get_category_by_id(db, dish_in.category_id)
+    if not category:
+        return create_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            error="Not Found",
+            message="Danh mục không tồn tại",
+            data=None
+        )
+        
+    # 3. Kiểm tra trùng tên món ăn (chỉ trùng với món ăn KHÁC món đang sửa)
+    existing_dish = crud.get_dish_by_name(db, dish_in.name)
+    if existing_dish and existing_dish.id != dish_id:
+        return create_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error="Bad Request",
+            message="Tên món ăn đã tồn tại",
+            data=None
+        )
+        
+    # Thực hiện cập nhật
+    updated_dish = crud.update_dish(db, db_dish, dish_in)
+    
+    data_res = {
+        "id": updated_dish.id,
+        "name": updated_dish.name,
+        "price": updated_dish.price,
+        "category": {
+            "id": updated_dish.category.id,
+            "name": updated_dish.category.name
+        } if updated_dish.category else None
+    }
+    
+    return create_response(
+        status_code=status.HTTP_200_OK,
+        error=None,
+        message="Cập nhật thông tin món ăn thành công",
+        data=data_res
+    )
+
+# ---------------------------------------------------------
+# API 3: DELETE /dishes/{dish_id} (Yêu cầu 4.4)
+# ---------------------------------------------------------
+@app.delete("/dishes/{dish_id}")
+def delete_dish(dish_id: int, db: Session = Depends(database.get_db)):
+    # Kiểm tra dish_id có tồn tại trong DB không
+    db_dish = crud.get_dish_by_id(db, dish_id)
+    if not db_dish:
+        return create_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            error="Not Found",
+            message="Món ăn không tồn tại",
+            data=None
+        )
+        
+    crud.delete_dish(db, db_dish)
+    
+    return create_response(
+        status_code=status.HTTP_200_OK,
+        error=None,
+        message="Xóa món ăn thành công",
+        data=None
+    )
