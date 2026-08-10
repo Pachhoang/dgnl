@@ -1,0 +1,24 @@
+from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy.orm import relationship
+from database import Base
+
+class CategoryModel(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_order=True, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(50), unique=True, nullable=False)
+
+    # Mối quan hệ 1-N với DishModel
+    dishes = relationship("DishModel", back_populates="category", cascade="all, delete-orphan")
+
+
+class DishModel(Base):
+    __tablename__ = "dishes"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False)
+    price = Column(Float, nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+
+    # Mối quan hệ ngược lại tới CategoryModel
+    category = relationship("CategoryModel", back_populates="dishes")
