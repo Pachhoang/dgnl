@@ -1,0 +1,28 @@
+from sqlalchemy.orm import Session
+from models import DishModel, CategoryModel
+import schemas
+
+def get_all_dishes(db: Session):
+    return db.query(DishModel).all()
+
+def get_dish_by_id(db: Session, dish_id: int):
+    return db.query(DishModel).filter(DishModel.id == dish_id).first()
+
+def get_category_by_id(db: Session, category_id: int):
+    return db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
+
+def get_dish_by_name(db: Session, name: str):
+    return db.query(DishModel).filter(DishModel.name == name).first()
+
+def update_dish(db: Session, db_dish: DishModel, dish_data: schemas.DishUpdate):
+    db_dish.name = dish_data.name
+    db_dish.price = dish_data.price
+    db_dish.category_id = dish_data.category_id
+    db.commit()
+    db.refresh(db_dish)
+    return db_dish
+
+def delete_dish(db: Session, db_dish: DishModel):
+    db.delete(db_dish)
+    db.commit()
+    return True
